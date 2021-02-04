@@ -900,6 +900,29 @@ ifeq ($(MAKE_JOBS),)
   MAKE_JOBS := 8
 endif
 
+QUIET_SUBDIR0  = +$(MAKE) -C # space to separate -C and subdir
+QUIET_SUBDIR1  =
+
+ifneq ($(findstring s,$(MAKEFLAGS)),s)
+ifndef V
+
+  QUIET_CC       = @echo '   ' CC $@;
+  QUIET_CXX      = @echo '   ' CXX $@;
+  QUIET_PCH      = @echo '   ' PCH $@;
+  QUIET_AR       = @echo '   ' AR $@;
+  QUIET_LINK     = @echo '   ' LINK $@;
+  QUIET_STRIP    = @echo '   ' STRIP $@;
+  QUIET_GEN      = @echo '   ' GEN $@;
+  QUIET_RC       = @echo '   ' RC $@;
+  QUIET_SUBDIR0  = +@subdir=
+  QUIET_SUBDIR1  = ;$(NO_SUBDIR) echo '   ' SUBDIR $$subdir; \
+                   $(MAKE) $(PRINT_DIR) -C $$subdir
+  MAKEFLAGS     += --no-print-directory
+  export V
+  export QUIET_GEN
+endif
+endif
+
 top-level-make:
 	@$(MAKE) -f Makefile -j$(MAKE_JOBS) all
 
@@ -907,20 +930,20 @@ all: version $(CHECKS) $(TARGET) $(L10N) $(TESTS) validate-pr
 	@
 
 $(TARGET): $(OBJS)
-	+$(LD) $(W32FLAGS) -o $(TARGET) $(OBJS) $(LDFLAGS)
+	+$(QUIET_LINK)$(LD) $(W32FLAGS) -o $(TARGET) $(OBJS) $(LDFLAGS)
 ifeq ($(RELEASE), 1)
   ifndef DEBUG_SYMBOLS
     ifneq ($(BACKTRACE),1)
-	$(STRIP) $(TARGET)
+	$(QUIET_STRIP)$(STRIP) $(TARGET)
     endif
   endif
 endif
 
 $(PCH_P): $(PCH_H)
-	-$(CXX) $(CPPFLAGS) $(DEFINES) $(subst -Werror,,$(CXXFLAGS)) -c $(PCH_H) -o $(PCH_P)
+	-$(QUIET_PCH)$(CXX) $(CPPFLAGS) $(DEFINES) $(subst -Werror,,$(CXXFLAGS)) -c $(PCH_H) -o $(PCH_P)
 
 $(BUILD_PREFIX)$(TARGET_NAME).a: $(OBJS)
-	$(AR) rcs $(BUILD_PREFIX)$(TARGET_NAME).a $(filter-out $(ODIR)/main.o $(ODIR)/messages.o,$(OBJS))
+	$(QUIET_AR)$(AR) rcs $(BUILD_PREFIX)$(TARGET_NAME).a $(filter-out $(ODIR)/main.o $(ODIR)/messages.o,$(OBJS))
 
 .PHONY: version
 version:
@@ -934,10 +957,10 @@ version:
 $(shell mkdir -p $(ODIR))
 
 $(ODIR)/%.o: $(SRC_DIR)/%.cpp $(PCH_P)
-	$(CXX) $(CPPFLAGS) $(DEFINES) $(CXXFLAGS) $(PCHFLAGS) -c $< -o $@
+	$(QUIET_CXX)$(CXX) $(CPPFLAGS) $(DEFINES) $(CXXFLAGS) $(PCHFLAGS) -c $< -o $@
 
 $(ODIR)/%.o: $(SRC_DIR)/%.rc
-	$(RC) $(RFLAGS) $< -o $@
+	$(QUIET_RC)$(RC) $(RFLAGS) $< -o $@
 
 src/version.h: version
 
@@ -947,10 +970,10 @@ localization:
 	lang/compile_mo.sh $(LANGUAGES)
 
 $(CHKJSON_BIN): $(CHKJSON_SOURCES)
-	$(CXX) $(CXXFLAGS) $(TOOL_CXXFLAGS) -Isrc/chkjson -Isrc $(CHKJSON_SOURCES) -o $(CHKJSON_BIN)
+	$(QUIET_CXX)$(CXX) $(CXXFLAGS) $(TOOL_CXXFLAGS) -Isrc/chkjson -Isrc $(CHKJSON_SOURCES) -o $(CHKJSON_BIN)
 
 json-check: $(CHKJSON_BIN)
-	./$(CHKJSON_BIN)
+	$(QUIET_GEN)./$(CHKJSON_BIN)
 
 clean: clean-tests clean-object_creator
 	rm -rf *$(TARGET_NAME) *$(TILES_TARGET_NAME)
@@ -1178,30 +1201,30 @@ endif
 
 style-json: json_blacklist $(JSON_FORMATTER_BIN)
 ifndef CROSS
-	find data -name "*.json" -print0 | grep -v -z -F -f json_blacklist | \
+	$(QUIET_GEN)find data -name "*.json" -print0 | grep -v -z -F -f json_blacklist | \
 	  xargs -0 -L 1 $(JSON_FORMATTER_BIN)
 else
 	@echo Cannot run json formatter in cross compiles.
 endif
 
 style-all-json: $(JSON_FORMATTER_BIN)
-	find data -name "*.json" -print0 | xargs -0 -L 1 $(JSON_FORMATTER_BIN)
+	$(QUIET_GEN)find data -name "*.json" -print0 | xargs -0 -L 1 $(JSON_FORMATTER_BIN)
 
 $(JSON_FORMATTER_BIN): $(JSON_FORMATTER_SOURCES)
-	$(CXX) $(CXXFLAGS) $(TOOL_CXXFLAGS) -Itools/format -Isrc \
+	$(QUIET_CXX)$(CXX) $(CXXFLAGS) $(TOOL_CXXFLAGS) -Itools/format -Isrc \
 	  $(JSON_FORMATTER_SOURCES) -o $(JSON_FORMATTER_BIN)
 
 python-check:
 	flake8
 
 tests: version $(BUILD_PREFIX)cataclysm.a
-	$(MAKE) -C tests
+	$(QUIET_SUBDIR0)tests $(QUIET_SUBDIR1)
 
 check: version $(BUILD_PREFIX)cataclysm.a
-	$(MAKE) -C tests check
+	$(QUIET_SUBDIR0)tests $(QUIET_SUBDIR1) check
 
 clean-tests:
-	$(MAKE) -C tests clean
+	$(QUIET_SUBDIR0)tests $(QUIET_SUBDIR1) clean
 
 object_creator: version $(BUILD_PREFIX)cataclysm.a
 	$(MAKE) -C object_creator
