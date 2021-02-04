@@ -1193,14 +1193,16 @@ clean: clean-tests clean-pch clean-lang
 	rm -f $(TEST_MO)
 	rm -f zzip zzip.*
 
-distclean:
-	rm -rf *$(BINDIST_DIR)
+clean-bindist:
+	rm -rf *$(BINDIST_DIR) *cataclysmdda-*.tar.gz *cataclysmdda-*.zip
 	rm -rf save
 	rm -rf lang/mo lang/mo_built.stamp
 	rm -f data/options.txt
 	rm -f data/keymap.txt
 	rm -f data/auto_pickup.txt
 	rm -f data/fontlist.txt
+
+distclean: clean clean-bindist
 
 bindist: $(BINDIST)
 
@@ -1357,7 +1359,7 @@ endif
 
 endif  # ifeq ($(NATIVE), osx)
 
-$(BINDIST): distclean version $(TARGET) $(ZZIP_BIN) $(L10N) $(BINDIST_EXTRAS) $(BINDIST_LOCALE)
+$(BINDIST): clean-bindist version $(TARGET) $(ZZIP_BIN) $(L10N) $(BINDIST_EXTRAS) $(BINDIST_LOCALE)
 	mkdir -p $(BINDIST_DIR)
 	cp -R $(TARGET) $(ZZIP_BIN) $(BINDIST_EXTRAS) $(BINDIST_DIR)
 	$(foreach lib,$(INSTALL_EXTRAS), install --strip $(lib) $(BINDIST_DIR))
@@ -1465,6 +1467,6 @@ clean-pch:
 clean-lang:
 	$(MAKE) -C lang clean
 
-.PHONY: tests check ctags etags clean-tests clean-pch clean-lang install lint
+.PHONY: tests check ctags etags clean clean-tests clean-bindist clean-pch clean-lang distclean install lint
 
 -include ${OBJS:.o=.d}
