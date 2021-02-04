@@ -1160,7 +1160,7 @@ version:
         [ -e "$(SRC_DIR)/version.h" ] && \
           OLDVERSION=$$(grep VERSION $(SRC_DIR)/version.h | cut -d '"' -f2) ; \
         if [ "x$$VERSION_STRING" != "x$$OLDVERSION" ]; then \
-          printf '// NOLINT(cata-header-guard)\n#define VERSION "%s"\n' "$$VERSION_STRING" | tee $(SRC_DIR)/version.h ; \
+          printf '// NOLINT(cata-header-guard)\n#define VERSION "%s"\n' "$$VERSION_STRING" > $(SRC_DIR)/version.h ; \
         fi \
      )
 
