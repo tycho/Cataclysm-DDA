@@ -1,5 +1,8 @@
 #include "path_info.h"
 
+#include <sys/types.h>
+#include <sys/stat.h>
+
 #include <clocale>
 #include <cstdlib>
 
@@ -38,6 +41,15 @@ static std::string options_value;
 static std::string memorialdir_value;
 static std::string langdir_value;
 
+static bool dir_exists( std::string path )
+{
+    struct stat st;
+    if( stat( path.c_str(), &st ) != 0 ) {
+        return false;
+    }
+    return ( st.st_mode & S_IFDIR ) != 0;
+}
+
 void PATH_INFO::init_base_path( std::string path )
 {
     if( !path.empty() ) {
@@ -45,6 +57,12 @@ void PATH_INFO::init_base_path( std::string path )
         if( ch != '/' && ch != '\\' ) {
             path.push_back( '/' );
         }
+#if defined(DATA_DIR_PREFIX)
+        if( !dir_exists( path + "share/cataclysm-dda" ) )
+#else
+        if( !dir_exists( path + "data" ) )
+#endif
+            path = "";
     }
 
     base_path_value = path;
