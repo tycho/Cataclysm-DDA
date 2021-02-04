@@ -1093,6 +1093,29 @@ ifeq ($(MAKE_JOBS),)
   MAKE_JOBS := 8
 endif
 
+QUIET_SUBDIR0  = +$(MAKE) -C # space to separate -C and subdir
+QUIET_SUBDIR1  =
+
+ifneq ($(findstring s,$(MAKEFLAGS)),s)
+ifndef V
+
+  QUIET_CC       = @echo '   ' CC $@;
+  QUIET_CXX      = @echo '   ' CXX $@;
+  QUIET_PCH      = @echo '   ' PCH $@;
+  QUIET_AR       = @echo '   ' AR $@;
+  QUIET_LINK     = @echo '   ' LINK $@;
+  QUIET_STRIP    = @echo '   ' STRIP $@;
+  QUIET_GEN      = @echo '   ' GEN $@;
+  QUIET_RC       = @echo '   ' RC $@;
+  QUIET_SUBDIR0  = +@subdir=
+  QUIET_SUBDIR1  = ;$(NO_SUBDIR) echo '   ' SUBDIR $$subdir; \
+                   $(MAKE) $(PRINT_DIR) -C $$subdir
+  MAKEFLAGS     += --no-print-directory
+  export V
+  export QUIET_GEN
+endif
+endif
+
 top-level-make:
 	@$(MAKE) -f Makefile -j$(MAKE_JOBS) all
 
@@ -1100,22 +1123,22 @@ all: version prefix $(CHECKS) $(TARGET) $(L10N) $(TESTSTARGET) $(ZZIP_BIN)
 	@
 
 $(TARGET): $(OBJS)
-	+$(LD) $(W32FLAGS) -o $(TARGET) $(OBJS) $(LDFLAGS)
+	+$(QUIET_LINK)$(LD) $(W32FLAGS) -o $(TARGET) $(OBJS) $(LDFLAGS)
 ifeq ($(RELEASE), 1)
   ifndef DEBUG_SYMBOLS
     ifneq ($(BACKTRACE),1)
       ifneq ($(NATIVE), emscripten)
-	$(STRIP) $(TARGET)
+	$(QUIET_STRIP)$(STRIP) $(TARGET)
       endif
     endif
   endif
 endif
 
 $(PCH_P): $(PCH_H)
-	-$(CXX) $(CPPFLAGS) $(DEFINES) $(CXXFLAGS) -MMD -MP -Wno-error -c $(PCH_H) -o $(PCH_P)
+	-$(QUIET_PCH)$(CXX) $(CPPFLAGS) $(DEFINES) $(CXXFLAGS) -MMD -MP -Wno-error -c $(PCH_H) -o $(PCH_P)
 
 $(BUILD_PREFIX)$(TARGET_NAME).a: $(OBJS)
-	$(AR) rcs $(AR_FLAGS) $(BUILD_PREFIX)$(TARGET_NAME).a $(filter-out $(ODIR)/main.o $(ODIR)/messages.o,$(OBJS))
+	$(QUIET_AR)$(AR) rcs $(AR_FLAGS) $(BUILD_PREFIX)$(TARGET_NAME).a $(filter-out $(ODIR)/main.o $(ODIR)/messages.o,$(OBJS))
 
 .PHONY: version prefix
 version:
@@ -1160,10 +1183,10 @@ $(ODIR)/third-party/%.o: $(SRC_DIR)/third-party/%.c
 	$(CXX) -x c $(CPPFLAGS) $(DEFINES) $(CFLAGS) -w -MMD -MP -c $< -o $@
 
 $(ODIR)/%.o: $(SRC_DIR)/%.cpp $(PCH_P)
-	$(CXX) $(CPPFLAGS) $(DEFINES) $(CXXFLAGS) -MMD -MP $(PCHFLAGS) -c $< -o $@
+	$(QUIET_CXX)$(CXX) $(CPPFLAGS) $(DEFINES) $(CXXFLAGS) -MMD -MP $(PCHFLAGS) -c $< -o $@
 
 $(ODIR)/%.o: $(SRC_DIR)/%.rc
-	$(RC) $(RFLAGS) $< -o $@
+	$(QUIET_RC)$(RC) $(RFLAGS) $< -o $@
 
 $(ODIR)/resource.o: data/cataicon.ico data/application_manifest.xml
 
@@ -1188,10 +1211,10 @@ lang/mo_built.stamp: $(MO_DEPS)
 localization: lang/mo_built.stamp
 
 $(CHKJSON_BIN): $(CHKJSON_SOURCES)
-	$(CXX) $(CXXFLAGS) $(TOOL_CXXFLAGS) -Isrc/chkjson -Isrc -isystem src/third-party $(CHKJSON_SOURCES) -o $(CHKJSON_BIN)
+	$(QUIET_CXX)$(CXX) $(CXXFLAGS) $(TOOL_CXXFLAGS) -Isrc/chkjson -Isrc -isystem src/third-party $(CHKJSON_SOURCES) -o $(CHKJSON_BIN)
 
 json-check: $(CHKJSON_BIN)
-	./$(CHKJSON_BIN)
+	$(QUIET_GEN)./$(CHKJSON_BIN)
 
 clean: clean-tests clean-pch clean-lang
 	rm -rf *$(TARGET_NAME) *$(TILES_TARGET_NAME)
@@ -1437,19 +1460,19 @@ JSON_CHECK_STAMPS = $(sort $(patsubst %,$(ODIR)/%,$(JSON_SOURCES:.json=.jstyle-c
 style-json : $(JSON_CHECK_STAMPS) $(JSON_FORMATTER_BIN)
 $(JSON_CHECK_STAMPS) : $(ODIR)/%.jstyle-check-stamp : %.json $(JSON_FORMATTER_BIN)
 ifndef CROSS
-	$(JSON_FORMATTER_BIN) $< && mkdir -p $(@D) && touch $@
+	$(QUIET_GEN)$(JSON_FORMATTER_BIN) $< && mkdir -p $(@D) && touch $@
 else
 	@echo Cannot run json formatter in cross compiles.
 endif
 
 style-all-json: $(JSON_FORMATTER_BIN)
-	find data -name "*.json" -print0 | xargs -0 -L 1 $(JSON_FORMATTER_BIN)
+	$(QUIET_GEN)find data -name "*.json" -print0 | xargs -0 -L 1 $(JSON_FORMATTER_BIN)
 
 style-all-json-parallel: $(JSON_FORMATTER_BIN)
 	find data -name "*.json" -print0 | xargs -0 -L 1 -P $$(nproc) $(JSON_FORMATTER_BIN)
 
 $(JSON_FORMATTER_BIN): $(JSON_FORMATTER_SOURCES)
-	$(CXX) $(CXXFLAGS) -MMD -MP $(TOOL_CXXFLAGS) -Itools/format -Isrc -isystem src/third-party \
+	$(QUIET_CXX)$(CXX) $(CXXFLAGS) -MMD -MP $(TOOL_CXXFLAGS) -Itools/format -Isrc -isystem src/third-party \
 	  $(JSON_FORMATTER_SOURCES) -o $(JSON_FORMATTER_BIN)
 
 $(BUILD_PREFIX)zstd.a: $(filter $(ODIR)/third-party/zstd/%.o,$(OBJS))
@@ -1462,13 +1485,14 @@ python-check:
 	flake8
 
 tests: version $(BUILD_PREFIX)cataclysm.a $(LOCALIZE_TEST_DEPS)
-	$(MAKE) -C tests
+	$(QUIET_SUBDIR0)tests $(QUIET_SUBDIR1)
 
 check: version $(BUILD_PREFIX)cataclysm.a $(LOCALIZE_TEST_DEPS)
+	$(QUIET_SUBDIR0)tests $(QUIET_SUBDIR1) check
 	$(MAKE) -C tests check
 
 clean-tests:
-	$(MAKE) -C tests clean
+	$(QUIET_SUBDIR0)tests $(QUIET_SUBDIR1) clean
 
 clean-pch:
 	rm -f pch/*pch.hpp.gch
