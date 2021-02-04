@@ -447,9 +447,10 @@ ifeq ($(RELEASE), 1)
 
   ifeq ($(LTO), 1)
     ifneq ($(CLANG), 0)
-      # LLVM's LTO will complain if the optimization level isn't between O0 and
-      # O3 (inclusive)
-      OPTLEVEL = -O3
+      # LLVM's LTO will complain if the optimization level on linker invocation
+      # isn't between O0 and O3 (inclusive)
+      BAD_LTO_OPT_LEVELS = -Og -Os -Oz
+      LTO_OPT_LEVEL = -O2
     endif
   endif
   CXXFLAGS += $(OPTLEVEL)
@@ -1089,7 +1090,7 @@ endif
 LDFLAGS += -lz
 
 CXXFLAGS := $(CXXFLAGS)
-LDFLAGS := $(LDFLAGS)
+LDFLAGS := $(LTO_OPT_LEVEL) $(filter-out $(BAD_LTO_OPT_LEVELS),$(LDFLAGS))
 
 MAKE_JOBS := $(shell getconf _NPROCESSORS_ONLN)
 ifeq ($(MAKE_JOBS),)
