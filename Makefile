@@ -953,14 +953,16 @@ clean: clean-tests clean-object_creator
 	rm -f pch/*pch.hpp.pch
 	rm -f pch/*pch.hpp.d
 
-distclean:
-	rm -rf *$(BINDIST_DIR)
+clean-bindist:
+	rm -rf *$(BINDIST_DIR) *cataclysmdda-*.tar.gz *cataclysmdda-*.zip
 	rm -rf save
 	rm -rf lang/mo
 	rm -f data/options.txt
 	rm -f data/keymap.txt
 	rm -f data/auto_pickup.txt
 	rm -f data/fontlist.txt
+
+distclean: clean clean-bindist
 
 bindist: $(BINDIST)
 
@@ -1127,7 +1129,7 @@ endif
 
 endif  # ifeq ($(NATIVE), osx)
 
-$(BINDIST): distclean version $(TARGET) $(L10N) $(BINDIST_EXTRAS) $(BINDIST_LOCALE)
+$(BINDIST): clean-bindist version $(TARGET) $(L10N) $(BINDIST_EXTRAS) $(BINDIST_LOCALE)
 	mkdir -p $(BINDIST_DIR)
 	cp -R $(TARGET) $(BINDIST_EXTRAS) $(BINDIST_DIR)
 ifdef LANGUAGES
@@ -1200,7 +1202,7 @@ ifneq ($(CYGWIN),1)
 	@build-scripts/validate_pr_in_jenkins
 endif
 
-.PHONY: tests check ctags etags clean-tests install lint validate-pr
+.PHONY: tests check ctags etags clean clean-tests clean-bindist distclean install lint validate-pr
 
 -include $(SOURCES:$(SRC_DIR)/%.cpp=$(DEPDIR)/%.P)
 -include ${OBJS:.o=.d}
