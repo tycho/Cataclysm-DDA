@@ -30,7 +30,6 @@ set(CATA_CLANG_TIDY_INCLUDE_DIR "" CACHE STRING
         "Path to internal clang-tidy headers required for plugin (e.g. ClangTidy.h)")
 set(CATA_CHECK_CLANG_TIDY "" CACHE STRING "Path to check_clang_tidy.py for plugin tests")
 set(GIT_BINARY "" CACHE STRING "Git binary name or path.")
-set(PREFIX "" CACHE STRING "Location of Data & GFX directories")
 
 include(CTest)
 
@@ -176,8 +175,9 @@ else ()
     endif ()
 endif ()
 
-if (PREFIX)
-    add_definitions(-DPREFIX=${PREFIX})
+if (NOT WIN32)
+    # Use PREFIX as storage of data,gfx, etc. Useful only on *nix OS.
+    add_definitions(-DPREFIX=${CMAKE_INSTALL_PREFIX} -DDATA_DIR_PREFIX)
 endif ()
 
 # Can't compile curses and tiles build's at same time
@@ -208,10 +208,6 @@ else ()
     message(STATUS "PIXMAPS_UNITY_ENTRY_PATH      : ${PIXMAPS_UNITY_ENTRY_PATH}")
     message(STATUS "MANPAGE_ENTRY_PATH            : ${MANPAGE_ENTRY_PATH}")
     add_definitions(-DRELEASE)
-    # Use PREFIX as storage of data,gfx, etc.. Useful only on *nix OS.
-    if (PREFIX AND NOT WIN32)
-        add_definitions(-DDATA_DIR_PREFIX)
-    endif ()
 endif ()
 
 message(STATUS "GIT_BINARY                    : ${GIT_EXECUTABLE}")
