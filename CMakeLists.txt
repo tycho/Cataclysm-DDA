@@ -184,14 +184,14 @@ endif ()
 # Set build types and display info
 if (CMAKE_BUILD_TYPE STREQUAL Debug)
     message(STATUS "Build ${PROJECT} in development mode --")
-    message(STATUS "Binaries will be located in: " ${CMAKE_SOURCE_DIR})
+    message(STATUS "Binaries will be located in: " ${CMAKE_BINARY_DIR})
     set(CMAKE_VERBOSE_MAKEFILE ON)
     # Since CataclysmDDA does not respect PREFIX for development builds
     # and has funny path handlers, we should create resulting Binaries
     # in the source directory
-    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR} CACHE PATH
+    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR} CACHE PATH
             "Single Directory for all Executables.")
-    set(BIN_PREFIX ${CMAKE_SOURCE_DIR})
+    set(BIN_PREFIX ${CMAKE_BINARY_DIR})
 else ()
     message(STATUS "CMAKE_INSTALL_PREFIX          : ${CMAKE_INSTALL_PREFIX}")
     message(STATUS "BIN_PREFIX                    : ${BIN_PREFIX}")
