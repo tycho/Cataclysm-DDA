@@ -36,6 +36,7 @@ if (TILES)
             cataclysm-tiles-common OBJECT
             ${CATACLYSM_DDA_SOURCES}
             ${CATACLYSM_DDA_HEADERS})
+    set_target_properties(cataclysm-tiles-common PROPERTIES INTERPROCEDURAL_OPTIMIZATION ${LTO})
     target_include_directories(cataclysm-tiles-common INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
 
     target_link_libraries(cataclysm-tiles-common PUBLIC third-party)
@@ -74,6 +75,7 @@ if (TILES)
                 ${MAIN_CPP}
                 ${MESSAGES_CPP})
     endif ()
+    set_target_properties(cataclysm-tiles PROPERTIES INTERPROCEDURAL_OPTIMIZATION ${LTO})
 
     add_dependencies(cataclysm-tiles-common get_version)
 
@@ -169,6 +171,7 @@ if (CURSES)
     add_library(cataclysm-common OBJECT
             ${CATACLYSM_DDA_SOURCES}
             ${CATACLYSM_DDA_HEADERS})
+    set_target_properties(cataclysm-common PROPERTIES INTERPROCEDURAL_OPTIMIZATION ${LTO})
     target_include_directories(cataclysm-common INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
 
     target_link_libraries(cataclysm-common PUBLIC third-party)
@@ -189,6 +192,7 @@ if (CURSES)
                 ${MAIN_CPP}
                 ${MESSAGES_CPP})
     endif ()
+    set_target_properties(cataclysm PROPERTIES INTERPROCEDURAL_OPTIMIZATION ${LTO})
 
     add_dependencies(cataclysm-common get_version)
     target_link_libraries(cataclysm PRIVATE cataclysm-common)
