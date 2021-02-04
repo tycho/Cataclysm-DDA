@@ -43,7 +43,7 @@ endif ()
 add_definitions(-DCMAKE)
 
 include(GetGitRevisionDescription)
-git_describe(GIT_VERSION --tags --always --match "[0-9A-Z]*.[0-9A-Z]*")
+git_describe(GIT_VERSION --tags --always --dirty --match=[0-9A-Z]*.[0-9A-Z]*)
 if (NOT ${GIT_VERSION} MATCHES GIT-NOTFOUND)
     string(REPLACE "-NOTFOUND" "" GIT_VERSION ${GIT_VERSION})
     file(WRITE ${CMAKE_BINARY_DIR}/src/version.h
