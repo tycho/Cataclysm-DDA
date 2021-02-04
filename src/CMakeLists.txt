@@ -29,6 +29,10 @@ if (TILES)
             cataclysm-tiles-common OBJECT
             ${CATACLYSM_DDA_SOURCES}
             ${CATACLYSM_DDA_HEADERS})
+    if(PCH)
+        target_precompile_headers(cataclysm-tiles-common
+            INTERFACE ../pch/main-pch.hpp)
+    endif()
     set_target_properties(cataclysm-tiles-common PROPERTIES INTERPROCEDURAL_OPTIMIZATION ${LTO})
     target_include_directories(cataclysm-tiles-common INTERFACE ${CMAKE_SOURCE_DIR}/src)
 
@@ -44,6 +48,10 @@ if (TILES)
                 ${MAIN_CPP}
                 ${MESSAGES_CPP})
     endif ()
+    if(PCH)
+        target_precompile_headers(cataclysm-tiles
+            INTERFACE ../pch/main-pch.hpp)
+    endif()
     set_target_properties(cataclysm-tiles PROPERTIES INTERPROCEDURAL_OPTIMIZATION ${LTO})
 
     add_dependencies(cataclysm-tiles-common get_version)
@@ -128,6 +136,10 @@ if (CURSES)
     add_library(cataclysm-common OBJECT
             ${CATACLYSM_DDA_SOURCES}
             ${CATACLYSM_DDA_HEADERS})
+    if(PCH)
+        target_precompile_headers(cataclysm-common
+            INTERFACE ../pch/main-pch.hpp)
+    endif()
     set_target_properties(cataclysm-common PROPERTIES INTERPROCEDURAL_OPTIMIZATION ${LTO})
     target_include_directories(cataclysm-common INTERFACE ${CMAKE_SOURCE_DIR}/src)
 
@@ -141,6 +153,10 @@ if (CURSES)
                 ${MAIN_CPP}
                 ${MESSAGES_CPP})
     endif ()
+    if(PCH)
+        target_precompile_headers(cataclysm
+            INTERFACE ../pch/main-pch.hpp)
+    endif()
     set_target_properties(cataclysm PROPERTIES INTERPROCEDURAL_OPTIMIZATION ${LTO})
 
     add_dependencies(cataclysm-common get_version)

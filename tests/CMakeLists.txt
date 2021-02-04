@@ -9,6 +9,10 @@ if (BUILD_TESTING)
 
     if (TILES)
         add_executable(cata_test-tiles ${CATACLYSM_DDA_TEST_SOURCES})
+        if(PCH)
+            target_precompile_headers(cata_test-tiles
+                INTERFACE pch/test-pch.hpp)
+        endif()
         set_target_properties(cata_test-tiles PROPERTIES INTERPROCEDURAL_OPTIMIZATION ${LTO})
         target_link_libraries(cata_test-tiles cataclysm-tiles-common)
         add_test(NAME test-tiles
@@ -19,6 +23,10 @@ if (BUILD_TESTING)
 
     if (CURSES)
         add_executable(cata_test ${CATACLYSM_DDA_TEST_SOURCES})
+        if(PCH)
+            target_precompile_headers(cata_test
+                INTERFACE pch/test-pch.hpp)
+        endif()
         set_target_properties(cata_test PROPERTIES INTERPROCEDURAL_OPTIMIZATION ${LTO})
         target_link_libraries(cata_test cataclysm-common)
         add_test(NAME test

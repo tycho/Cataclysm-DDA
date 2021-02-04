@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.9)
+cmake_minimum_required(VERSION 3.16)
 
 include(CheckIPOSupported)
 
@@ -12,6 +12,7 @@ set(CMAKE_TLS_VERIFY ON)
 
 # Build options
 option(LTO "Enable link-time optimization" "OFF")
+option(PCH "Enable precompiled headers" "ON")
 option(TILES "Build graphical tileset version." "OFF")
 option(CURSES "Build curses version." "ON")
 option(SOUND "Support for in-game sounds & music." "OFF")
@@ -213,6 +214,7 @@ endif ()
 message(STATUS "GIT_BINARY                    : ${GIT_EXECUTABLE}")
 message(STATUS "DYNAMIC_LINKING               : ${DYNAMIC_LINKING}")
 message(STATUS "LTO                           : ${LTO}")
+message(STATUS "PCH                           : ${PCH}")
 message(STATUS "TILES                         : ${TILES}")
 message(STATUS "CURSES                        : ${CURSES}")
 message(STATUS "SOUND                         : ${SOUND}")
