@@ -1088,6 +1088,9 @@ endif
 
 LDFLAGS += -lz
 
+CXXFLAGS := $(CXXFLAGS)
+LDFLAGS := $(LDFLAGS)
+
 MAKE_JOBS := $(shell getconf _NPROCESSORS_ONLN)
 ifeq ($(MAKE_JOBS),)
   MAKE_JOBS := 8
