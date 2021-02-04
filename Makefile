@@ -356,7 +356,7 @@ ifeq ($(RELEASE), 1)
     endif
 
     ifneq ($(CLANG), 0)
-      LTOFLAGS += -flto
+      LTOFLAGS += -flto=thin
     else
       LTOFLAGS += -flto=jobserver -flto-odr-type-merging
     endif
