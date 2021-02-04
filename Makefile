@@ -89,6 +89,8 @@
 # Disable building and running tests.
 # make RUNTESTS=0
 
+top-level-make:
+
 # comment these to toggle them as one sees fit.
 # DEBUG is best turned on if you plan to debug in gdb -- please do!
 # PROFILE is for use with gprof or a similar program -- don't bother generally.
@@ -893,6 +895,14 @@ ifeq ($(LTO), 1)
   endif
 endif
 
+MAKE_JOBS := $(shell getconf _NPROCESSORS_ONLN)
+ifeq ($(MAKE_JOBS),)
+  MAKE_JOBS := 8
+endif
+
+top-level-make:
+	@$(MAKE) -f Makefile -j$(MAKE_JOBS) all
+
 all: version $(CHECKS) $(TARGET) $(L10N) $(TESTS) validate-pr
 	@
 
@@ -1137,7 +1147,9 @@ ifdef LANGUAGES
 endif
 	$(BINDIST_CMD)
 
+ifneq (,$(MAKECMDGOALS))
 export ODIR _OBJS LDFLAGS CXX W32FLAGS DEFINES CXXFLAGS TARGETSYSTEM CLANG PCH PCHFLAGS
+endif
 
 ctags: $(ASTYLE_SOURCES)
 	ctags $^
