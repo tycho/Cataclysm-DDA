@@ -242,6 +242,7 @@ else (MSVC)
              -Wsuggest-override \
              -Wunused-macros \
              -Wzero-as-null-pointer-constant \
+             -Wno-implicit-fallthrough \
              -Wno-unknown-warning-option")
     set(CATA_SANITY
             "-fvisibility=hidden \
