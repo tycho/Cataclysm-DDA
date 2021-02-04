@@ -523,6 +523,8 @@ else
   C_STD = -std=c17
 endif
 
+OTHERS += -fvisibility=hidden -fvisibility-inlines-hidden -fwrapv -fno-strict-aliasing
+
 ifeq ($(CYGWIN),1)
 WARNINGS += -Wimplicit-fallthrough=0
 endif
