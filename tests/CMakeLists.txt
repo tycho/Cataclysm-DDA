@@ -1,4 +1,6 @@
 if (BUILD_TESTING)
+    file(COPY ${CMAKE_SOURCE_DIR}/tests/data DESTINATION ${CMAKE_BINARY_DIR}/tests)
+
     file(GLOB CATACLYSM_DDA_TEST_SOURCES
             ${CMAKE_SOURCE_DIR}/tests/*.cpp)
 
