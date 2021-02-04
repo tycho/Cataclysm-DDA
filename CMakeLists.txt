@@ -83,12 +83,6 @@ if (${CMAKE_SYSTEM_NAME} MATCHES FreeBSD)
     set(_OS_FREEBSD_ 1)
 endif ()
 
-if (${CMAKE_SYSTEM_NAME} MATCHES Darwin)
-    set(_OS_DARWIN_ 1)
-    set(LOCALIZE OFF)
-    message(STATUS "Disable internationalization on Darwin as it is not supported")
-endif ()
-
 include(CheckCXXCompilerFlag)
 
 #FIXME: Add dest build choice: m32 for 32 bit or m64 for 64 bit version
@@ -366,7 +360,7 @@ endif (BACKTRACE)
 
 # Ok. Now create build and install recipes
 if (LOCALIZE)
-    if (WIN32)
+    if (WIN32 OR APPLE)
         find_package(Libintl)
         if (NOT LIBINTL_FOUND)
             message(FATAL_ERROR
