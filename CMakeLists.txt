@@ -18,6 +18,7 @@ option(SOUND "Support for in-game sounds & music." "OFF")
 option(BACKTRACE "Support for printing stack backtraces on crash" "ON")
 option(LIBBACKTRACE "Print backtrace with libbacktrace." "OFF")
 option(USE_HOME_DIR "Use user's home directory for save files." "ON")
+option(USE_XDG_DIR "Use user's xdg directory for save files." "OFF")
 option(LOCALIZE "Support for language localizations. Also enable UTF support." "ON")
 option(LANGUAGES "Compile localization files for specified languages." "")
 option(DYNAMIC_LINKING
@@ -69,6 +70,9 @@ else()
        set(CLANG 0)
 endif()
 
+if (USE_HOME_DIR AND USE_XDG_DIR)
+    message(FATAL_ERROR "The USE_HOME_DIR and USE_XDG_DIR options are mutually exclusive")
+endif()
 
 #OS Check Placeholders. Will be used for BINDIST
 if (${CMAKE_SYSTEM_NAME} MATCHES Linux)
@@ -219,6 +223,7 @@ message(STATUS "SOUND                         : ${SOUND}")
 message(STATUS "BACKTRACE                     : ${BACKTRACE}")
 message(STATUS "LOCALIZE                      : ${LOCALIZE}")
 message(STATUS "USE_HOME_DIR                  : ${USE_HOME_DIR}")
+message(STATUS "USE_XDG_DIR                   : ${USE_XDG_DIR}")
 message(STATUS "LANGUAGES                     : ${LANGUAGES}")
 message(STATUS "See INSTALL file for details and more info --")
 
@@ -385,6 +390,9 @@ endif ()
 
 if (USE_HOME_DIR)
     add_definitions(-DUSE_HOME_DIR)
+endif ()
+if (USE_XDG_DIR)
+    add_definitions(-DUSE_XDG_DIR)
 endif ()
 
 add_subdirectory(src)
