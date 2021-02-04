@@ -89,6 +89,8 @@
 # Disable building and running tests.
 # make RUNTESTS=0
 
+top-level-make:
+
 # comment these to toggle them as one sees fit.
 # DEBUG is best turned on if you plan to debug in gdb -- please do!
 # PROFILE is for use with gprof or a similar program -- don't bother generally.
@@ -337,9 +339,10 @@ ifeq ($(RELEASE), 1)
 
   ifeq ($(LTO), 1)
     ifneq ($(CLANG), 0)
-      # LLVM's LTO will complain if the optimization level isn't between O0 and
-      # O3 (inclusive)
-      OPTLEVEL = -O3
+      # LLVM's LTO will complain if the optimization level on linker invocation
+      # isn't between O0 and O3 (inclusive)
+      BAD_LTO_OPT_LEVELS = -Og -Os -Oz
+      LTO_OPT_LEVEL = -O2
     endif
   endif
   CXXFLAGS += $(OPTLEVEL)
@@ -354,7 +357,7 @@ ifeq ($(RELEASE), 1)
     endif
 
     ifneq ($(CLANG), 0)
-      LTOFLAGS += -flto
+      LTOFLAGS += -flto=thin
     else
       LTOFLAGS += -flto=jobserver -flto-odr-type-merging
     endif
@@ -400,6 +403,8 @@ ifeq ($(shell sh -c 'uname -o 2>/dev/null || echo not'),Cygwin)
 else
   OTHERS += -std=c++14
 endif
+
+OTHERS += -fvisibility=hidden -fvisibility-inlines-hidden -fwrapv -fno-strict-aliasing
 
 ifeq ($(CYGWIN),1)
 WARNINGS += -Wimplicit-fallthrough=0
@@ -893,41 +898,79 @@ ifeq ($(LTO), 1)
   endif
 endif
 
+LDFLAGS := $(LTO_OPT_LEVEL) $(filter-out $(BAD_LTO_OPT_LEVELS),$(LDFLAGS))
+
+CXXFLAGS := $(CXXFLAGS)
+LDFLAGS := $(LDFLAGS)
+
+MAKE_JOBS := $(shell getconf _NPROCESSORS_ONLN)
+ifeq ($(MAKE_JOBS),)
+  MAKE_JOBS := 8
+endif
+
+QUIET_SUBDIR0  = +$(MAKE) -C # space to separate -C and subdir
+QUIET_SUBDIR1  =
+
+ifneq ($(findstring s,$(MAKEFLAGS)),s)
+ifndef V
+
+  QUIET_CC       = @echo '   ' CC $@;
+  QUIET_CXX      = @echo '   ' CXX $@;
+  QUIET_PCH      = @echo '   ' PCH $@;
+  QUIET_AR       = @echo '   ' AR $@;
+  QUIET_LINK     = @echo '   ' LINK $@;
+  QUIET_STRIP    = @echo '   ' STRIP $@;
+  QUIET_GEN      = @echo '   ' GEN $@;
+  QUIET_RC       = @echo '   ' RC $@;
+  QUIET_SUBDIR0  = +@subdir=
+  QUIET_SUBDIR1  = ;$(NO_SUBDIR) echo '   ' SUBDIR $$subdir; \
+                   $(MAKE) $(PRINT_DIR) -C $$subdir
+  MAKEFLAGS     += --no-print-directory
+  export V
+  export QUIET_GEN
+endif
+endif
+
+MAKEFLAGS += --no-builtin-rules
+
+top-level-make:
+	@$(MAKE) -f Makefile -j$(MAKE_JOBS) all
+
 all: version $(CHECKS) $(TARGET) $(L10N) $(TESTS) validate-pr
 	@
 
 $(TARGET): $(OBJS)
-	+$(LD) $(W32FLAGS) -o $(TARGET) $(OBJS) $(LDFLAGS)
+	+$(QUIET_LINK)$(LD) $(W32FLAGS) -o $(TARGET) $(OBJS) $(LDFLAGS)
 ifeq ($(RELEASE), 1)
   ifndef DEBUG_SYMBOLS
     ifneq ($(BACKTRACE),1)
-	$(STRIP) $(TARGET)
+	$(QUIET_STRIP)$(STRIP) $(TARGET)
     endif
   endif
 endif
 
 $(PCH_P): $(PCH_H)
-	-$(CXX) $(CPPFLAGS) $(DEFINES) $(subst -Werror,,$(CXXFLAGS)) -c $(PCH_H) -o $(PCH_P)
+	-$(QUIET_PCH)$(CXX) $(CPPFLAGS) $(DEFINES) $(subst -Werror,,$(CXXFLAGS)) -c $(PCH_H) -o $(PCH_P)
 
 $(BUILD_PREFIX)$(TARGET_NAME).a: $(OBJS)
-	$(AR) rcs $(BUILD_PREFIX)$(TARGET_NAME).a $(filter-out $(ODIR)/main.o $(ODIR)/messages.o,$(OBJS))
+	$(QUIET_AR)$(AR) rcs $(BUILD_PREFIX)$(TARGET_NAME).a $(filter-out $(ODIR)/main.o $(ODIR)/messages.o,$(OBJS))
 
 .PHONY: version
 version:
 	@( VERSION_STRING=$(VERSION) ; \
             [ -e ".git" ] && GITVERSION=$$( git describe --tags --always --dirty --match "[0-9A-Z]*.[0-9A-Z]*" ) && VERSION_STRING=$$GITVERSION ; \
             [ -e "$(SRC_DIR)/version.h" ] && OLDVERSION=$$(grep VERSION $(SRC_DIR)/version.h|cut -d '"' -f2) ; \
-            if [ "x$$VERSION_STRING" != "x$$OLDVERSION" ]; then printf '// NOLINT(cata-header-guard)\n#define VERSION "%s"\n' "$$VERSION_STRING" | tee $(SRC_DIR)/version.h ; fi \
+            if [ "x$$VERSION_STRING" != "x$$OLDVERSION" ]; then printf '// NOLINT(cata-header-guard)\n#define VERSION "%s"\n' "$$VERSION_STRING" > $(SRC_DIR)/version.h ; fi \
          )
 
 # Unconditionally create the object dir on every invocation.
 $(shell mkdir -p $(ODIR))
 
 $(ODIR)/%.o: $(SRC_DIR)/%.cpp $(PCH_P)
-	$(CXX) $(CPPFLAGS) $(DEFINES) $(CXXFLAGS) $(PCHFLAGS) -c $< -o $@
+	$(QUIET_CXX)$(CXX) $(CPPFLAGS) $(DEFINES) $(CXXFLAGS) $(PCHFLAGS) -c $< -o $@
 
 $(ODIR)/%.o: $(SRC_DIR)/%.rc
-	$(RC) $(RFLAGS) $< -o $@
+	$(QUIET_RC)$(RC) $(RFLAGS) $< -o $@
 
 src/version.h: version
 
@@ -937,10 +980,10 @@ localization:
 	lang/compile_mo.sh $(LANGUAGES)
 
 $(CHKJSON_BIN): $(CHKJSON_SOURCES)
-	$(CXX) $(CXXFLAGS) $(TOOL_CXXFLAGS) -Isrc/chkjson -Isrc $(CHKJSON_SOURCES) -o $(CHKJSON_BIN)
+	$(QUIET_CXX)$(CXX) $(CXXFLAGS) $(TOOL_CXXFLAGS) -Isrc/chkjson -Isrc $(CHKJSON_SOURCES) -o $(CHKJSON_BIN)
 
 json-check: $(CHKJSON_BIN)
-	./$(CHKJSON_BIN)
+	$(QUIET_GEN)./$(CHKJSON_BIN)
 
 clean: clean-tests clean-object_creator
 	rm -rf *$(TARGET_NAME) *$(TILES_TARGET_NAME)
@@ -953,14 +996,16 @@ clean: clean-tests clean-object_creator
 	rm -f pch/*pch.hpp.pch
 	rm -f pch/*pch.hpp.d
 
-distclean:
-	rm -rf *$(BINDIST_DIR)
+clean-bindist:
+	rm -rf *$(BINDIST_DIR) *cataclysmdda-*.tar.gz *cataclysmdda-*.zip
 	rm -rf save
 	rm -rf lang/mo
 	rm -f data/options.txt
 	rm -f data/keymap.txt
 	rm -f data/auto_pickup.txt
 	rm -f data/fontlist.txt
+
+distclean: clean clean-bindist
 
 bindist: $(BINDIST)
 
@@ -1127,7 +1172,7 @@ endif
 
 endif  # ifeq ($(NATIVE), osx)
 
-$(BINDIST): distclean version $(TARGET) $(L10N) $(BINDIST_EXTRAS) $(BINDIST_LOCALE)
+$(BINDIST): clean-bindist version $(TARGET) $(L10N) $(BINDIST_EXTRAS) $(BINDIST_LOCALE)
 	mkdir -p $(BINDIST_DIR)
 	cp -R $(TARGET) $(BINDIST_EXTRAS) $(BINDIST_DIR)
 ifdef LANGUAGES
@@ -1135,7 +1180,9 @@ ifdef LANGUAGES
 endif
 	$(BINDIST_CMD)
 
+ifneq (,$(MAKECMDGOALS))
 export ODIR _OBJS LDFLAGS CXX W32FLAGS DEFINES CXXFLAGS TARGETSYSTEM CLANG PCH PCHFLAGS
+endif
 
 ctags: $(ASTYLE_SOURCES)
 	ctags $^
@@ -1164,30 +1211,30 @@ endif
 
 style-json: json_blacklist $(JSON_FORMATTER_BIN)
 ifndef CROSS
-	find data -name "*.json" -print0 | grep -v -z -F -f json_blacklist | \
+	$(QUIET_GEN)find data -name "*.json" -print0 | grep -v -z -F -f json_blacklist | \
 	  xargs -0 -L 1 $(JSON_FORMATTER_BIN)
 else
 	@echo Cannot run json formatter in cross compiles.
 endif
 
 style-all-json: $(JSON_FORMATTER_BIN)
-	find data -name "*.json" -print0 | xargs -0 -L 1 $(JSON_FORMATTER_BIN)
+	$(QUIET_GEN)find data -name "*.json" -print0 | xargs -0 -L 1 $(JSON_FORMATTER_BIN)
 
 $(JSON_FORMATTER_BIN): $(JSON_FORMATTER_SOURCES)
-	$(CXX) $(CXXFLAGS) $(TOOL_CXXFLAGS) -Itools/format -Isrc \
+	$(QUIET_CXX)$(CXX) $(CXXFLAGS) $(TOOL_CXXFLAGS) -Itools/format -Isrc \
 	  $(JSON_FORMATTER_SOURCES) -o $(JSON_FORMATTER_BIN)
 
 python-check:
 	flake8
 
 tests: version $(BUILD_PREFIX)cataclysm.a
-	$(MAKE) -C tests
+	$(QUIET_SUBDIR0)tests $(QUIET_SUBDIR1)
 
 check: version $(BUILD_PREFIX)cataclysm.a
-	$(MAKE) -C tests check
+	$(QUIET_SUBDIR0)tests $(QUIET_SUBDIR1) check
 
 clean-tests:
-	$(MAKE) -C tests clean
+	$(QUIET_SUBDIR0)tests $(QUIET_SUBDIR1) clean
 
 object_creator: version $(BUILD_PREFIX)cataclysm.a
 	$(MAKE) -C object_creator
@@ -1200,7 +1247,7 @@ ifneq ($(CYGWIN),1)
 	@build-scripts/validate_pr_in_jenkins
 endif
 
-.PHONY: tests check ctags etags clean-tests install lint validate-pr
+.PHONY: tests check ctags etags clean clean-tests clean-bindist distclean install lint validate-pr
 
 -include $(SOURCES:$(SRC_DIR)/%.cpp=$(DEPDIR)/%.P)
 -include ${OBJS:.o=.d}

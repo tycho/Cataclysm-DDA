@@ -1,4 +1,6 @@
-cmake_minimum_required(VERSION 3.1.4)
+cmake_minimum_required(VERSION 3.16)
+
+include(CheckIPOSupported)
 
 project(CataclysmDDA)
 
@@ -9,12 +11,15 @@ set(CMAKE_MODULE_PATH
 set(CMAKE_TLS_VERIFY ON)
 
 # Build options
+option(LTO "Enable link-time optimization" "OFF")
+option(PCH "Enable precompiled headers" "ON")
 option(TILES "Build graphical tileset version." "OFF")
 option(CURSES "Build curses version." "ON")
 option(SOUND "Support for in-game sounds & music." "OFF")
 option(BACKTRACE "Support for printing stack backtraces on crash" "ON")
 option(LIBBACKTRACE "Print backtrace with libbacktrace." "OFF")
 option(USE_HOME_DIR "Use user's home directory for save files." "ON")
+option(USE_XDG_DIR "Use user's xdg directory for save files." "OFF")
 option(LOCALIZE "Support for language localizations. Also enable UTF support." "ON")
 option(LANGUAGES "Compile localization files for specified languages." "")
 option(DYNAMIC_LINKING
@@ -26,7 +31,6 @@ set(CATA_CLANG_TIDY_INCLUDE_DIR "" CACHE STRING
         "Path to internal clang-tidy headers required for plugin (e.g. ClangTidy.h)")
 set(CATA_CHECK_CLANG_TIDY "" CACHE STRING "Path to check_clang_tidy.py for plugin tests")
 set(GIT_BINARY "" CACHE STRING "Git binary name or path.")
-set(PREFIX "" CACHE STRING "Location of Data & GFX directories")
 
 include(CTest)
 
@@ -40,14 +44,35 @@ endif ()
 add_definitions(-DCMAKE)
 
 include(GetGitRevisionDescription)
-git_describe(GIT_VERSION --tags --always --match "[0-9A-Z]*.[0-9A-Z]*")
+git_describe(GIT_VERSION --tags --always --dirty --match=[0-9A-Z]*.[0-9A-Z]*)
 if (NOT ${GIT_VERSION} MATCHES GIT-NOTFOUND)
     string(REPLACE "-NOTFOUND" "" GIT_VERSION ${GIT_VERSION})
-    file(WRITE ${CMAKE_SOURCE_DIR}/src/version.h
+    file(WRITE ${CMAKE_BINARY_DIR}/src/version.h
             "// NOLINT(cata-header-guard)\n\#define VERSION \"${GIT_VERSION}\"\n")
     message(STATUS "${PROJECT_NAME} build version is: ${GIT_VERSION}")
+    include_directories(${CMAKE_BINARY_DIR}/src)
     add_definitions(-DGIT_VERSION)
 endif ()
+
+check_ipo_supported(RESULT LTO_SUPPORTED OUTPUT error)
+if(LTO)
+    if(NOT LTO_SUPPORTED)
+        message(STATUS "LTO requested, but not supported.")
+    endif()
+    if(CMAKE_SYSTEM_NAME MATCHES Linux)
+        set(CMAKE_EXE_LINKER_FLAGS_RELEASE "${CMAKE_EXE_LINKER_FLAGS_RELEASE} -fuse-ld=gold")
+    endif()
+endif()
+
+if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+       set(CLANG 1)
+else()
+       set(CLANG 0)
+endif()
+
+if (USE_HOME_DIR AND USE_XDG_DIR)
+    message(FATAL_ERROR "The USE_HOME_DIR and USE_XDG_DIR options are mutually exclusive")
+endif()
 
 #OS Check Placeholders. Will be used for BINDIST
 if (${CMAKE_SYSTEM_NAME} MATCHES Linux)
@@ -56,12 +81,6 @@ endif ()
 
 if (${CMAKE_SYSTEM_NAME} MATCHES FreeBSD)
     set(_OS_FREEBSD_ 1)
-endif ()
-
-if (${CMAKE_SYSTEM_NAME} MATCHES Darwin)
-    set(_OS_DARWIN_ 1)
-    set(LOCALIZE OFF)
-    message(STATUS "Disable internationalization on Darwin as it is not supported")
 endif ()
 
 include(CheckCXXCompilerFlag)
@@ -151,8 +170,9 @@ else ()
     endif ()
 endif ()
 
-if (PREFIX)
-    add_definitions(-DPREFIX=${PREFIX})
+if (NOT WIN32)
+    # Use PREFIX as storage of data,gfx, etc. Useful only on *nix OS.
+    add_definitions(-DPREFIX=${CMAKE_INSTALL_PREFIX} -DDATA_DIR_PREFIX)
 endif ()
 
 # Can't compile curses and tiles build's at same time
@@ -163,14 +183,14 @@ endif ()
 # Set build types and display info
 if (CMAKE_BUILD_TYPE STREQUAL Debug)
     message(STATUS "Build ${PROJECT} in development mode --")
-    message(STATUS "Binaries will be located in: " ${CMAKE_SOURCE_DIR})
+    message(STATUS "Binaries will be located in: " ${CMAKE_BINARY_DIR})
     set(CMAKE_VERBOSE_MAKEFILE ON)
     # Since CataclysmDDA does not respect PREFIX for development builds
     # and has funny path handlers, we should create resulting Binaries
     # in the source directory
-    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR} CACHE PATH
+    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR} CACHE PATH
             "Single Directory for all Executables.")
-    set(BIN_PREFIX ${CMAKE_SOURCE_DIR})
+    set(BIN_PREFIX ${CMAKE_BINARY_DIR})
 else ()
     message(STATUS "CMAKE_INSTALL_PREFIX          : ${CMAKE_INSTALL_PREFIX}")
     message(STATUS "BIN_PREFIX                    : ${BIN_PREFIX}")
@@ -183,20 +203,19 @@ else ()
     message(STATUS "PIXMAPS_UNITY_ENTRY_PATH      : ${PIXMAPS_UNITY_ENTRY_PATH}")
     message(STATUS "MANPAGE_ENTRY_PATH            : ${MANPAGE_ENTRY_PATH}")
     add_definitions(-DRELEASE)
-    # Use PREFIX as storage of data,gfx, etc.. Useful only on *nix OS.
-    if (PREFIX AND NOT WIN32)
-        add_definitions(-DDATA_DIR_PREFIX)
-    endif ()
 endif ()
 
 message(STATUS "GIT_BINARY                    : ${GIT_EXECUTABLE}")
 message(STATUS "DYNAMIC_LINKING               : ${DYNAMIC_LINKING}")
+message(STATUS "LTO                           : ${LTO}")
+message(STATUS "PCH                           : ${PCH}")
 message(STATUS "TILES                         : ${TILES}")
 message(STATUS "CURSES                        : ${CURSES}")
 message(STATUS "SOUND                         : ${SOUND}")
 message(STATUS "BACKTRACE                     : ${BACKTRACE}")
 message(STATUS "LOCALIZE                      : ${LOCALIZE}")
 message(STATUS "USE_HOME_DIR                  : ${USE_HOME_DIR}")
+message(STATUS "USE_XDG_DIR                   : ${USE_XDG_DIR}")
 message(STATUS "LANGUAGES                     : ${LANGUAGES}")
 message(STATUS "See INSTALL file for details and more info --")
 
@@ -220,14 +239,20 @@ else (MSVC)
              -Wsuggest-override \
              -Wunused-macros \
              -Wzero-as-null-pointer-constant \
+             -Wno-implicit-fallthrough \
              -Wno-unknown-warning-option")
+    set(CATA_SANITY
+            "-fvisibility=hidden \
+             -fvisibility-inlines-hidden \
+             -fwrapv \
+             -fno-strict-aliasing")
     if (NOT ${CMAKE_SYSTEM_NAME} MATCHES Windows)
         set(CATA_WARNINGS "${CATA_WARNINGS} -Wredundant-decls")
     endif ()
     set(CATA_OTHER_FLAGS "${CATA_OTHER_FLAGS} -fsigned-char")
     # Compact the whitespace in the warning string
     string(REGEX REPLACE "[\t ]+" " " CATA_WARNINGS "${CATA_WARNINGS}")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CATA_WARNINGS} ${CATA_OTHER_FLAGS}")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CATA_WARNINGS} ${CATA_SANITY} ${CATA_OTHER_FLAGS}")
     set(CMAKE_CXX_FLAGS_DEBUG "-Og -g")
 endif ()
 
@@ -335,7 +360,7 @@ endif (BACKTRACE)
 
 # Ok. Now create build and install recipes
 if (LOCALIZE)
-    if (WIN32)
+    if (WIN32 OR APPLE)
         find_package(Libintl)
         if (NOT LIBINTL_FOUND)
             message(FATAL_ERROR
@@ -357,6 +382,9 @@ endif ()
 
 if (USE_HOME_DIR)
     add_definitions(-DUSE_HOME_DIR)
+endif ()
+if (USE_XDG_DIR)
+    add_definitions(-DUSE_XDG_DIR)
 endif ()
 
 add_subdirectory(src)
@@ -380,10 +408,3 @@ configure_file(
 add_custom_target(uninstall
         "${CMAKE_COMMAND}"
         -P "${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake")
-
-find_program(CCACHE_FOUND ccache)
-if (CCACHE_FOUND AND CATA_CCACHE)
-    set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE ccache)
-    set_property(GLOBAL PROPERTY RULE_LAUNCH_LINK ccache)
-endif ()
-
