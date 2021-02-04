@@ -11,14 +11,14 @@ file(GLOB CATACLYSM_DDA_HEADERS ${CMAKE_SOURCE_DIR}/src/*.h)
 # Get GIT version strings
 add_custom_target(
         get_version
-        DEPENDS ${CMAKE_SOURCE_DIR}/src/version.h
+        DEPENDS ${CMAKE_BINARY_DIR}/src/version.h
         WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
 
 add_custom_command(
-        OUTPUT ${CMAKE_SOURCE_DIR}/src/version.h
+        OUTPUT ${CMAKE_BINARY_DIR}/src/version.h
         COMMAND ${CMAKE_COMMAND}
                 -D SRC=${CMAKE_SOURCE_DIR}/src/version.h.in
-                -D DST=${CMAKE_SOURCE_DIR}/src/version.h
+                -D DST=${CMAKE_BINARY_DIR}/src/version.h
                 -D GIT_EXECUTABLE=${GIT_EXECUTABLE}
                 -P ${CMAKE_SOURCE_DIR}/src/version.cmake
         WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})

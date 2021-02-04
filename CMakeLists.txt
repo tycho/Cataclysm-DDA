@@ -46,9 +46,10 @@ include(GetGitRevisionDescription)
 git_describe(GIT_VERSION --tags --always --match "[0-9A-Z]*.[0-9A-Z]*")
 if (NOT ${GIT_VERSION} MATCHES GIT-NOTFOUND)
     string(REPLACE "-NOTFOUND" "" GIT_VERSION ${GIT_VERSION})
-    file(WRITE ${CMAKE_SOURCE_DIR}/src/version.h
+    file(WRITE ${CMAKE_BINARY_DIR}/src/version.h
             "// NOLINT(cata-header-guard)\n\#define VERSION \"${GIT_VERSION}\"\n")
     message(STATUS "${PROJECT_NAME} build version is: ${GIT_VERSION}")
+    include_directories(${CMAKE_BINARY_DIR}/src)
     add_definitions(-DGIT_VERSION)
 endif ()
 
