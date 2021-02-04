@@ -258,13 +258,18 @@ if (NOT MSVC)
     else()
         set(CATA_WARNINGS "${CATA_WARNINGS} -Wno-unknown-warning")
     endif()
+    set(CATA_SANITY
+            "-fvisibility=hidden \
+             -fvisibility-inlines-hidden \
+             -fwrapv \
+             -fno-strict-aliasing")
     if (NOT "${CMAKE_SYSTEM_NAME}" MATCHES "Windows")
         set(CATA_WARNINGS "${CATA_WARNINGS} -Wredundant-decls")
     endif ()
     set(CATA_OTHER_FLAGS "${CATA_OTHER_FLAGS} -fsigned-char -g1")
     # Compact the whitespace in the warning string
     string(REGEX REPLACE "[\t ]+" " " CATA_WARNINGS "${CATA_WARNINGS}")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CATA_WARNINGS} ${CATA_OTHER_FLAGS}")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CATA_WARNINGS} ${CATA_SANITY} ${CATA_OTHER_FLAGS}")
     set(CMAKE_CXX_FLAGS_DEBUG "-Og -g2")
 endif ()
 
