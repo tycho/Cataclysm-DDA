@@ -1,4 +1,6 @@
-cmake_minimum_required(VERSION 3.1.4)
+cmake_minimum_required(VERSION 3.9)
+
+include(CheckIPOSupported)
 
 project(CataclysmDDA)
 
@@ -9,6 +11,7 @@ set(CMAKE_MODULE_PATH
 set(CMAKE_TLS_VERIFY ON)
 
 # Build options
+option(LTO "Enable link-time optimization" "OFF")
 option(TILES "Build graphical tileset version." "OFF")
 option(CURSES "Build curses version." "ON")
 option(SOUND "Support for in-game sounds & music." "OFF")
@@ -48,6 +51,23 @@ if (NOT ${GIT_VERSION} MATCHES GIT-NOTFOUND)
     message(STATUS "${PROJECT_NAME} build version is: ${GIT_VERSION}")
     add_definitions(-DGIT_VERSION)
 endif ()
+
+check_ipo_supported(RESULT LTO_SUPPORTED OUTPUT error)
+if(LTO)
+    if(NOT LTO_SUPPORTED)
+        message(STATUS "LTO requested, but not supported.")
+    endif()
+    if(CMAKE_SYSTEM_NAME MATCHES Linux)
+        set(CMAKE_EXE_LINKER_FLAGS_RELEASE "${CMAKE_EXE_LINKER_FLAGS_RELEASE} -fuse-ld=gold")
+    endif()
+endif()
+
+if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+       set(CLANG 1)
+else()
+       set(CLANG 0)
+endif()
+
 
 #OS Check Placeholders. Will be used for BINDIST
 if (${CMAKE_SYSTEM_NAME} MATCHES Linux)
@@ -191,6 +211,7 @@ endif ()
 
 message(STATUS "GIT_BINARY                    : ${GIT_EXECUTABLE}")
 message(STATUS "DYNAMIC_LINKING               : ${DYNAMIC_LINKING}")
+message(STATUS "LTO                           : ${LTO}")
 message(STATUS "TILES                         : ${TILES}")
 message(STATUS "CURSES                        : ${CURSES}")
 message(STATUS "SOUND                         : ${SOUND}")
@@ -386,4 +407,3 @@ if (CCACHE_FOUND AND CATA_CCACHE)
     set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE ccache)
     set_property(GLOBAL PROPERTY RULE_LAUNCH_LINK ccache)
 endif ()
-

@@ -1,5 +1,3 @@
-cmake_minimum_required(VERSION 3.1.4)
-
 set(CHKJSON_SOURCES
         ${CMAKE_SOURCE_DIR}/src/json.cpp
         ${CMAKE_SOURCE_DIR}/src/chkjson/chkjson.cpp)

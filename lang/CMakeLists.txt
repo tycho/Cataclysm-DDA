@@ -1,5 +1,3 @@
-cmake_minimum_required(VERSION 3.1.4)
-
 message(STATUS "Process LANGUAGES variable --")
 
 find_package(Gettext)
