@@ -404,6 +404,8 @@ else
   OTHERS += -std=c++14
 endif
 
+OTHERS += -fvisibility=hidden -fvisibility-inlines-hidden -fwrapv -fno-strict-aliasing
+
 ifeq ($(CYGWIN),1)
 WARNINGS += -Wimplicit-fallthrough=0
 endif
