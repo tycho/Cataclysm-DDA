@@ -1116,6 +1116,8 @@ ifndef V
 endif
 endif
 
+MAKEFLAGS += --no-builtin-rules
+
 top-level-make:
 	@$(MAKE) -f Makefile -j$(MAKE_JOBS) all
 
