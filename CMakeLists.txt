@@ -69,6 +69,7 @@ execute_process(COMMAND ${CMAKE_COMMAND}
 
 if (GIT_VERSION)
     message(STATUS "${PROJECT_NAME} build version is: ${GIT_VERSION}")
+    include_directories(${CMAKE_BINARY_DIR}/src)
     add_definitions(-DGIT_VERSION)
 else()
     message(WARNING "Git binary not found. Build version will be set to NULL. Install Git package

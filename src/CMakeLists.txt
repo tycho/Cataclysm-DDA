@@ -22,11 +22,11 @@ file(GLOB CATACLYSM_DDA_HEADERS ${CMAKE_CURRENT_SOURCE_DIR}/*.h)
 # Get GIT version strings
 add_custom_target(
         get_version
-        DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/version.h
+        DEPENDS ${CMAKE_BINARY_DIR}/src/version.h
         WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
 
 add_custom_command(
-        OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/version.h
+        OUTPUT ${CMAKE_BINARY_DIR}/src/version.h
         COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_SOURCE_DIR}/version.cmake
         WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
 
@@ -37,7 +37,7 @@ if (TILES)
             ${CATACLYSM_DDA_SOURCES}
             ${CATACLYSM_DDA_HEADERS})
     set_target_properties(cataclysm-tiles-common PROPERTIES INTERPROCEDURAL_OPTIMIZATION ${LTO})
-    target_include_directories(cataclysm-tiles-common INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
+    target_include_directories(cataclysm-tiles-common INTERFACE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 
     target_link_libraries(cataclysm-tiles-common PUBLIC third-party)
 
