@@ -1,12 +1,12 @@
-if(NOT EXISTS ${CMAKE_SOURCE_DIR}/src/version.h)
-    file(TOUCH ${CMAKE_SOURCE_DIR}/src/version.h)
+if(NOT EXISTS ${CMAKE_BINARY_DIR}/src/version.h)
+    file(TOUCH ${CMAKE_BINARY_DIR}/src/version.h)
 endif()
 
 list(APPEND CMAKE_MODULE_PATH
     ${CMAKE_SOURCE_DIR}/CMakeModules)
 include(GetGitRevisionDescription)
 
-git_describe(GIT_VERSION --tags --always --match "cdda-*")
+git_describe(GIT_VERSION --tags --always --dirty --match "cdda-*")
 
 if(EXISTS ${GIT_EXECUTABLE})
     execute_process(COMMAND ${GIT_EXECUTABLE} -c core.safecrlf=false diff --quiet
@@ -26,11 +26,11 @@ endif()
 
 if(GIT_VERSION)
     string(REPLACE "-NOTFOUND" "" GIT_VERSION ${GIT_VERSION})
-    file(READ  ${CMAKE_SOURCE_DIR}/src/version.h VERSION_H)
+    file(READ  ${CMAKE_BINARY_DIR}/src/version.h VERSION_H)
     string(REGEX MATCH "#define VERSION \"(.+)\"" VERSION_H "${VERSION_H}")
 
     if(NOT GIT_VERSION STREQUAL VERSION_H)
-        file(WRITE ${CMAKE_SOURCE_DIR}/src/version.h
+        file(WRITE ${CMAKE_BINARY_DIR}/src/version.h
                 "// NOLINT(cata-header-guard)\n\#define VERSION \"${GIT_VERSION}\"\n")
     endif()
 endif()
@@ -41,7 +41,7 @@ execute_process(COMMAND ${GIT_EXECUTABLE} rev-parse HEAD
     OUTPUT_VARIABLE _sha1
     OUTPUT_STRIP_TRAILING_WHITESPACE)
 string(TIMESTAMP _timestamp %Y-%m-%d-%H%M)
-file(WRITE ${CMAKE_SOURCE_DIR}/VERSION.txt "\
+file(WRITE ${CMAKE_BINARY_DIR}/VERSION.txt "\
 build type: Release\n\
 build number: ${_timestamp}\n\
 commit sha: ${_sha1}\n\

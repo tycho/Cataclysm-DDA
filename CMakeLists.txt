@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.20)
 
+include(CheckIPOSupported)
+
 project(CataclysmDDA)
 
 list(APPEND CMAKE_MODULE_PATH
@@ -13,6 +15,8 @@ set(CMAKE_TLS_VERIFY ON)
 
 # Build options
 include(CMakeDependentOption)
+option(LTO "Enable link-time optimization" "OFF")
+option(PCH "Enable precompiled headers" "ON")
 option(TILES "Build graphical tileset version." "OFF")
 option(CURSES "Build curses version." "ON")
 option(SOUND "Support for in-game sounds & music." "OFF")
@@ -24,6 +28,7 @@ cmake_dependent_option(USE_PREFIX_DATA_DIR
     "Use UNIX system directories for game data in release build." ON
     "UNIX" OFF
 )
+option(USE_XDG_DIR "Use user's xdg directory for save files." "OFF")
 option(LOCALIZE "Support for language localizations. Also enable UTF support." "ON")
 option(LANGUAGES "Compile localization files for specified languages." "")
 option(DYNAMIC_LINKING
@@ -66,12 +71,33 @@ execute_process(COMMAND ${CMAKE_COMMAND}
 
 if (GIT_VERSION)
     message(STATUS "${PROJECT_NAME} build version is: ${GIT_VERSION}")
+    include_directories(${CMAKE_BINARY_DIR}/src)
     add_definitions(-DGIT_VERSION)
 else()
     message(WARNING "Git binary not found. Build version will be set to NULL. Install Git package
     or use -DGIT_BINARY to set path to git binary.")
     set(VERSION "NULL")
 endif ()
+
+check_ipo_supported(RESULT LTO_SUPPORTED OUTPUT error)
+if(LTO)
+    if(NOT LTO_SUPPORTED)
+        message(STATUS "LTO requested, but not supported.")
+    endif()
+    if(CMAKE_SYSTEM_NAME MATCHES Linux)
+        set(CMAKE_EXE_LINKER_FLAGS_RELEASE "${CMAKE_EXE_LINKER_FLAGS_RELEASE} -fuse-ld=gold")
+    endif()
+endif()
+
+if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+       set(CLANG 1)
+else()
+       set(CLANG 0)
+endif()
+
+if (USE_HOME_DIR AND USE_XDG_DIR)
+    message(FATAL_ERROR "The USE_HOME_DIR and USE_XDG_DIR options are mutually exclusive")
+endif()
 
 #OS Check Placeholders. Will be used for BINDIST
 if ("${CMAKE_SYSTEM_NAME}" MATCHES "Linux")
@@ -204,6 +230,8 @@ endif ()
 
 message(STATUS "GIT_BINARY                    : ${GIT_EXECUTABLE}")
 message(STATUS "DYNAMIC_LINKING               : ${DYNAMIC_LINKING}")
+message(STATUS "LTO                           : ${LTO}")
+message(STATUS "PCH                           : ${PCH}")
 message(STATUS "TILES                         : ${TILES}")
 message(STATUS "CURSES                        : ${CURSES}")
 message(STATUS "SOUND                         : ${SOUND}")
@@ -211,6 +239,7 @@ message(STATUS "BACKTRACE                     : ${BACKTRACE}")
 message(STATUS "LOCALIZE                      : ${LOCALIZE}")
 message(STATUS "USE_XDG_DIR                   : ${USE_XDG_DIR}")
 message(STATUS "USE_HOME_DIR                  : ${USE_HOME_DIR}")
+message(STATUS "USE_XDG_DIR                   : ${USE_XDG_DIR}")
 message(STATUS "LANGUAGES                     : ${LANGUAGES}")
 message(STATUS "See doc/c++/COMPILING-CMAKE.md for details and more info --")
 
@@ -236,13 +265,18 @@ if (NOT MSVC)
     else()
         set(CATA_WARNINGS "${CATA_WARNINGS} -Wno-unknown-warning")
     endif()
+    set(CATA_SANITY
+            "-fvisibility=hidden \
+             -fvisibility-inlines-hidden \
+             -fwrapv \
+             -fno-strict-aliasing")
     if (NOT "${CMAKE_SYSTEM_NAME}" MATCHES "Windows")
         set(CATA_WARNINGS "${CATA_WARNINGS} -Wredundant-decls")
     endif ()
     set(CATA_OTHER_FLAGS "${CATA_OTHER_FLAGS} -fsigned-char -g1")
     # Compact the whitespace in the warning string
     string(REGEX REPLACE "[\t ]+" " " CATA_WARNINGS "${CATA_WARNINGS}")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CATA_WARNINGS} ${CATA_OTHER_FLAGS}")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CATA_WARNINGS} ${CATA_SANITY} ${CATA_OTHER_FLAGS}")
     set(CMAKE_CXX_FLAGS_DEBUG "-Og -g2")
 endif ()
 
@@ -410,6 +444,9 @@ endif ()
 
 if (USE_HOME_DIR)
     add_definitions(-DUSE_HOME_DIR)
+endif ()
+if (USE_XDG_DIR)
+    add_definitions(-DUSE_XDG_DIR)
 endif ()
 
 if (USE_XDG_DIR)

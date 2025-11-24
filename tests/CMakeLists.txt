@@ -1,6 +1,6 @@
-cmake_minimum_required(VERSION 3.20)
-
 if (BUILD_TESTING)
+    file(COPY ${CMAKE_SOURCE_DIR}/tests/data DESTINATION ${CMAKE_BINARY_DIR}/tests)
+
     file(GLOB CATACLYSM_DDA_TEST_SOURCES
             ${CMAKE_SOURCE_DIR}/tests/*.cpp)
 
@@ -26,6 +26,11 @@ if (BUILD_TESTING)
         if (LOCALIZE)
             add_dependencies(cata_test-tiles test_mo)
         endif()
+        if(PCH)
+            target_precompile_headers(cata_test-tiles
+                INTERFACE pch/test-pch.hpp)
+        endif()
+        set_target_properties(cata_test-tiles PROPERTIES INTERPROCEDURAL_OPTIMIZATION ${LTO})
         target_link_libraries(cata_test-tiles PRIVATE cataclysm-tiles-common)
 	target_compile_definitions(cata_test-tiles PUBLIC SDL_MAIN_HANDLED)
         add_test(NAME cata.tiles.default
@@ -50,6 +55,11 @@ if (BUILD_TESTING)
         if (LOCALIZE)
             add_dependencies(cata_test test_mo)
         endif()
+        if(PCH)
+            target_precompile_headers(cata_test
+                INTERFACE pch/test-pch.hpp)
+        endif()
+        set_target_properties(cata_test PROPERTIES INTERPROCEDURAL_OPTIMIZATION ${LTO})
         target_link_libraries(cata_test PRIVATE cataclysm-common)
         add_test(NAME test
                 COMMAND cata_test --rng-seed time

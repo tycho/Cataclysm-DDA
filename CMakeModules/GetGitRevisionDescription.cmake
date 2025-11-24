@@ -89,13 +89,8 @@ function(git_describe _var)
             find_package(Git QUIET)
         endif()
     endif()
-    get_git_head_revision(refspec hash)
     if(NOT GIT_FOUND)
         set(${_var} "GIT-NOTFOUND" PARENT_SCOPE)
-        return()
-    endif()
-    if(NOT hash)
-        set(${_var} "HEAD-HASH-NOTFOUND" PARENT_SCOPE)
         return()
     endif()
 
@@ -114,7 +109,6 @@ function(git_describe _var)
         -c
         core.safecrlf=false
         describe
-        ${hash}
         ${ARGN}
         WORKING_DIRECTORY
         "${CMAKE_SOURCE_DIR}"

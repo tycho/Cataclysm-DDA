@@ -22,11 +22,11 @@ file(GLOB CATACLYSM_DDA_HEADERS ${CMAKE_CURRENT_SOURCE_DIR}/*.h)
 # Get GIT version strings
 add_custom_target(
         get_version
-        DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/version.h
+        DEPENDS ${CMAKE_BINARY_DIR}/src/version.h
         WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
 
 add_custom_command(
-        OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/version.h
+        OUTPUT ${CMAKE_BINARY_DIR}/src/version.h
         COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_SOURCE_DIR}/version.cmake
         WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
 
@@ -36,7 +36,12 @@ if (TILES)
             cataclysm-tiles-common OBJECT
             ${CATACLYSM_DDA_SOURCES}
             ${CATACLYSM_DDA_HEADERS})
-    target_include_directories(cataclysm-tiles-common INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
+    if(PCH)
+        target_precompile_headers(cataclysm-tiles-common
+            INTERFACE ../pch/main-pch.hpp)
+    endif()
+    set_target_properties(cataclysm-tiles-common PROPERTIES INTERPROCEDURAL_OPTIMIZATION ${LTO})
+    target_include_directories(cataclysm-tiles-common INTERFACE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 
     target_link_libraries(cataclysm-tiles-common PUBLIC third-party)
 
@@ -74,6 +79,11 @@ if (TILES)
                 ${MAIN_CPP}
                 ${MESSAGES_CPP})
     endif ()
+    if(PCH)
+        target_precompile_headers(cataclysm-tiles
+            INTERFACE ../pch/main-pch.hpp)
+    endif()
+    set_target_properties(cataclysm-tiles PROPERTIES INTERPROCEDURAL_OPTIMIZATION ${LTO})
 
     add_dependencies(cataclysm-tiles-common get_version)
 
@@ -169,6 +179,11 @@ if (CURSES)
     add_library(cataclysm-common OBJECT
             ${CATACLYSM_DDA_SOURCES}
             ${CATACLYSM_DDA_HEADERS})
+    if(PCH)
+        target_precompile_headers(cataclysm-common
+            INTERFACE ../pch/main-pch.hpp)
+    endif()
+    set_target_properties(cataclysm-common PROPERTIES INTERPROCEDURAL_OPTIMIZATION ${LTO})
     target_include_directories(cataclysm-common INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
 
     target_link_libraries(cataclysm-common PUBLIC third-party)
@@ -189,6 +204,11 @@ if (CURSES)
                 ${MAIN_CPP}
                 ${MESSAGES_CPP})
     endif ()
+    if(PCH)
+        target_precompile_headers(cataclysm
+            INTERFACE ../pch/main-pch.hpp)
+    endif()
+    set_target_properties(cataclysm PROPERTIES INTERPROCEDURAL_OPTIMIZATION ${LTO})
 
     add_dependencies(cataclysm-common get_version)
     target_link_libraries(cataclysm PRIVATE cataclysm-common)
