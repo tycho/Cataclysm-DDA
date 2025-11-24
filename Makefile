@@ -95,6 +95,8 @@
 # Build source files in order of how often the matching header is included
 #  make HEADERPOPULARITY=1
 
+top-level-make:
+
 # comment these to toggle them as one sees fit.
 # DEBUG is best turned on if you plan to debug in gdb -- please do!
 # PROFILE is for use with gprof or a similar program -- don't bother generally.
@@ -445,9 +447,10 @@ ifeq ($(RELEASE), 1)
 
   ifeq ($(LTO), 1)
     ifneq ($(CLANG), 0)
-      # LLVM's LTO will complain if the optimization level isn't between O0 and
-      # O3 (inclusive)
-      OPTLEVEL = -O3
+      # LLVM's LTO will complain if the optimization level on linker invocation
+      # isn't between O0 and O3 (inclusive)
+      BAD_LTO_OPT_LEVELS = -Og -Os -Oz
+      LTO_OPT_LEVEL = -O2
     endif
   endif
   CXXFLAGS += $(OPTLEVEL)
@@ -464,7 +467,7 @@ ifeq ($(RELEASE), 1)
     endif
 
     ifneq ($(CLANG), 0)
-      LTOFLAGS += -flto
+      LTOFLAGS += -flto=thin
     else
       LTOFLAGS += -flto=jobserver -flto-odr-type-merging
     endif
@@ -519,6 +522,8 @@ else
   CXX_STD = -std=c++17
   C_STD = -std=c17
 endif
+
+OTHERS += -fvisibility=hidden -fvisibility-inlines-hidden -fwrapv -fno-strict-aliasing
 
 ifeq ($(CYGWIN),1)
 WARNINGS += -Wimplicit-fallthrough=0
@@ -1086,26 +1091,62 @@ endif
 
 LDFLAGS += -lz
 
+CXXFLAGS := $(CXXFLAGS)
+LDFLAGS := $(LTO_OPT_LEVEL) $(filter-out $(BAD_LTO_OPT_LEVELS),$(LDFLAGS))
+
+MAKE_JOBS := $(shell getconf _NPROCESSORS_ONLN)
+ifeq ($(MAKE_JOBS),)
+  MAKE_JOBS := 8
+endif
+
+QUIET_SUBDIR0  = +$(MAKE) -C # space to separate -C and subdir
+QUIET_SUBDIR1  =
+
+ifneq ($(findstring s,$(MAKEFLAGS)),s)
+ifndef V
+
+  QUIET_CC       = @echo '   ' CC $@;
+  QUIET_CXX      = @echo '   ' CXX $@;
+  QUIET_PCH      = @echo '   ' PCH $@;
+  QUIET_AR       = @echo '   ' AR $@;
+  QUIET_LINK     = @echo '   ' LINK $@;
+  QUIET_STRIP    = @echo '   ' STRIP $@;
+  QUIET_GEN      = @echo '   ' GEN $@;
+  QUIET_RC       = @echo '   ' RC $@;
+  QUIET_SUBDIR0  = +@subdir=
+  QUIET_SUBDIR1  = ;$(NO_SUBDIR) echo '   ' SUBDIR $$subdir; \
+                   $(MAKE) $(PRINT_DIR) -C $$subdir
+  MAKEFLAGS     += --no-print-directory
+  export V
+  export QUIET_GEN
+endif
+endif
+
+MAKEFLAGS += --no-builtin-rules
+
+top-level-make:
+	@$(MAKE) -f Makefile -j$(MAKE_JOBS) all
+
 all: version prefix $(CHECKS) $(TARGET) $(L10N) $(TESTSTARGET) $(ZZIP_BIN)
 	@
 
 $(TARGET): $(OBJS)
-	+$(LD) $(W32FLAGS) -o $(TARGET) $(OBJS) $(LDFLAGS)
+	+$(QUIET_LINK)$(LD) $(W32FLAGS) -o $(TARGET) $(OBJS) $(LDFLAGS)
 ifeq ($(RELEASE), 1)
   ifndef DEBUG_SYMBOLS
     ifneq ($(BACKTRACE),1)
       ifneq ($(NATIVE), emscripten)
-	$(STRIP) $(TARGET)
+	$(QUIET_STRIP)$(STRIP) $(TARGET)
       endif
     endif
   endif
 endif
 
 $(PCH_P): $(PCH_H)
-	-$(CXX) $(CPPFLAGS) $(DEFINES) $(CXXFLAGS) -MMD -MP -Wno-error -c $(PCH_H) -o $(PCH_P)
+	-$(QUIET_PCH)$(CXX) $(CPPFLAGS) $(DEFINES) $(CXXFLAGS) -MMD -MP -Wno-error -c $(PCH_H) -o $(PCH_P)
 
 $(BUILD_PREFIX)$(TARGET_NAME).a: $(OBJS)
-	$(AR) rcs $(AR_FLAGS) $(BUILD_PREFIX)$(TARGET_NAME).a $(filter-out $(ODIR)/main.o $(ODIR)/messages.o,$(OBJS))
+	$(QUIET_AR)$(AR) rcs $(AR_FLAGS) $(BUILD_PREFIX)$(TARGET_NAME).a $(filter-out $(ODIR)/main.o $(ODIR)/messages.o,$(OBJS))
 
 .PHONY: version prefix
 version:
@@ -1119,7 +1160,7 @@ version:
         [ -e "$(SRC_DIR)/version.h" ] && \
           OLDVERSION=$$(grep VERSION $(SRC_DIR)/version.h | cut -d '"' -f2) ; \
         if [ "x$$VERSION_STRING" != "x$$OLDVERSION" ]; then \
-          printf '// NOLINT(cata-header-guard)\n#define VERSION "%s"\n' "$$VERSION_STRING" | tee $(SRC_DIR)/version.h ; \
+          printf '// NOLINT(cata-header-guard)\n#define VERSION "%s"\n' "$$VERSION_STRING" > $(SRC_DIR)/version.h ; \
         fi \
      )
 
@@ -1150,10 +1191,10 @@ $(ODIR)/third-party/%.o: $(SRC_DIR)/third-party/%.c
 	$(CXX) -x c $(CPPFLAGS) $(DEFINES) $(CFLAGS) -w -MMD -MP -c $< -o $@
 
 $(ODIR)/%.o: $(SRC_DIR)/%.cpp $(PCH_P)
-	$(CXX) $(CPPFLAGS) $(DEFINES) $(CXXFLAGS) -MMD -MP $(PCHFLAGS) -c $< -o $@
+	$(QUIET_CXX)$(CXX) $(CPPFLAGS) $(DEFINES) $(CXXFLAGS) -MMD -MP $(PCHFLAGS) -c $< -o $@
 
 $(ODIR)/%.o: $(SRC_DIR)/%.rc
-	$(RC) $(RFLAGS) $< -o $@
+	$(QUIET_RC)$(RC) $(RFLAGS) $< -o $@
 
 $(ODIR)/resource.o: data/cataicon.ico data/application_manifest.xml
 
@@ -1178,10 +1219,10 @@ lang/mo_built.stamp: $(MO_DEPS)
 localization: lang/mo_built.stamp
 
 $(CHKJSON_BIN): $(CHKJSON_SOURCES)
-	$(CXX) $(CXXFLAGS) $(TOOL_CXXFLAGS) -Isrc/chkjson -Isrc -isystem src/third-party $(CHKJSON_SOURCES) -o $(CHKJSON_BIN)
+	$(QUIET_CXX)$(CXX) $(CXXFLAGS) $(TOOL_CXXFLAGS) -Isrc/chkjson -Isrc -isystem src/third-party $(CHKJSON_SOURCES) -o $(CHKJSON_BIN)
 
 json-check: $(CHKJSON_BIN)
-	./$(CHKJSON_BIN)
+	$(QUIET_GEN)./$(CHKJSON_BIN)
 
 clean: clean-tests clean-pch clean-lang
 	rm -rf *$(TARGET_NAME) *$(TILES_TARGET_NAME)
@@ -1193,14 +1234,16 @@ clean: clean-tests clean-pch clean-lang
 	rm -f $(TEST_MO)
 	rm -f zzip zzip.*
 
-distclean:
-	rm -rf *$(BINDIST_DIR)
+clean-bindist:
+	rm -rf *$(BINDIST_DIR) *cataclysmdda-*.tar.gz *cataclysmdda-*.zip
 	rm -rf save
 	rm -rf lang/mo lang/mo_built.stamp
 	rm -f data/options.txt
 	rm -f data/keymap.txt
 	rm -f data/auto_pickup.txt
 	rm -f data/fontlist.txt
+
+distclean: clean clean-bindist
 
 bindist: $(BINDIST)
 
@@ -1357,7 +1400,7 @@ endif
 
 endif  # ifeq ($(NATIVE), osx)
 
-$(BINDIST): distclean version $(TARGET) $(ZZIP_BIN) $(L10N) $(BINDIST_EXTRAS) $(BINDIST_LOCALE)
+$(BINDIST): clean-bindist version $(TARGET) $(ZZIP_BIN) $(L10N) $(BINDIST_EXTRAS) $(BINDIST_LOCALE)
 	mkdir -p $(BINDIST_DIR)
 	cp -R $(TARGET) $(ZZIP_BIN) $(BINDIST_EXTRAS) $(BINDIST_DIR)
 	$(foreach lib,$(INSTALL_EXTRAS), install --strip $(lib) $(BINDIST_DIR))
@@ -1366,7 +1409,9 @@ ifdef LANGUAGES
 endif
 	$(BINDIST_CMD)
 
+ifneq (,$(MAKECMDGOALS))
 export ODIR _OBJS LDFLAGS CXX W32FLAGS DEFINES CXXFLAGS TARGETSYSTEM CLANG PCH PCHFLAGS
+endif
 
 ctags: $(ASTYLE_SOURCES)
 	ctags $^
@@ -1423,19 +1468,19 @@ JSON_CHECK_STAMPS = $(sort $(patsubst %,$(ODIR)/%,$(JSON_SOURCES:.json=.jstyle-c
 style-json : $(JSON_CHECK_STAMPS) $(JSON_FORMATTER_BIN)
 $(JSON_CHECK_STAMPS) : $(ODIR)/%.jstyle-check-stamp : %.json $(JSON_FORMATTER_BIN)
 ifndef CROSS
-	$(JSON_FORMATTER_BIN) $< && mkdir -p $(@D) && touch $@
+	$(QUIET_GEN)$(JSON_FORMATTER_BIN) $< && mkdir -p $(@D) && touch $@
 else
 	@echo Cannot run json formatter in cross compiles.
 endif
 
 style-all-json: $(JSON_FORMATTER_BIN)
-	find data -name "*.json" -print0 | xargs -0 -L 1 $(JSON_FORMATTER_BIN)
+	$(QUIET_GEN)find data -name "*.json" -print0 | xargs -0 -L 1 $(JSON_FORMATTER_BIN)
 
 style-all-json-parallel: $(JSON_FORMATTER_BIN)
 	find data -name "*.json" -print0 | xargs -0 -L 1 -P $$(nproc) $(JSON_FORMATTER_BIN)
 
 $(JSON_FORMATTER_BIN): $(JSON_FORMATTER_SOURCES)
-	$(CXX) $(CXXFLAGS) -MMD -MP $(TOOL_CXXFLAGS) -Itools/format -Isrc -isystem src/third-party \
+	$(QUIET_CXX)$(CXX) $(CXXFLAGS) -MMD -MP $(TOOL_CXXFLAGS) -Itools/format -Isrc -isystem src/third-party \
 	  $(JSON_FORMATTER_SOURCES) -o $(JSON_FORMATTER_BIN)
 
 $(BUILD_PREFIX)zstd.a: $(filter $(ODIR)/third-party/zstd/%.o,$(OBJS))
@@ -1448,13 +1493,14 @@ python-check:
 	flake8
 
 tests: version $(BUILD_PREFIX)cataclysm.a $(LOCALIZE_TEST_DEPS)
-	$(MAKE) -C tests
+	$(QUIET_SUBDIR0)tests $(QUIET_SUBDIR1)
 
 check: version $(BUILD_PREFIX)cataclysm.a $(LOCALIZE_TEST_DEPS)
+	$(QUIET_SUBDIR0)tests $(QUIET_SUBDIR1) check
 	$(MAKE) -C tests check
 
 clean-tests:
-	$(MAKE) -C tests clean
+	$(QUIET_SUBDIR0)tests $(QUIET_SUBDIR1) clean
 
 clean-pch:
 	rm -f pch/*pch.hpp.gch
@@ -1465,6 +1511,6 @@ clean-pch:
 clean-lang:
 	$(MAKE) -C lang clean
 
-.PHONY: tests check ctags etags clean-tests clean-pch clean-lang install lint
+.PHONY: tests check ctags etags clean clean-tests clean-bindist clean-pch clean-lang distclean install lint
 
 -include ${OBJS:.o=.d}
