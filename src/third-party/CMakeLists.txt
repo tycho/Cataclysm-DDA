@@ -62,6 +62,8 @@ target_link_libraries(
 
 # ImGUI
 if (TILES)
+        find_package(Freetype REQUIRED)
+
         add_library(
                 imgui
                 STATIC
@@ -98,7 +100,7 @@ if (TILES)
                 SYSTEM
                 PRIVATE
                 ${SDL2_INCLUDE_DIR}/..
-                /usr/include/freetype2
+                ${FREETYPE_INCLUDE_DIRS}
                 )
 
         target_compile_options(
@@ -114,7 +116,7 @@ if (TILES)
         else()
             target_link_libraries(imgui PUBLIC
                 SDL2::SDL2
-                freetype
+                ${FREETYPE_LIBRARIES}
             )
         endif ()
 
